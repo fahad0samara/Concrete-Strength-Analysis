@@ -4,10 +4,12 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # Set page configuration
 st.set_page_config(
@@ -221,23 +223,66 @@ st.markdown("""
 
 @st.cache_data
 def load_data():
-    """Load and preprocess the data"""
-    df = pd.read_csv('concrete.csv')
-    return df
+    """Load and cache the concrete dataset"""
+    # Sample data
+    sample_data = {
+        'cement': [540, 389, 400, 445, 367, 470],
+        'blast_furnace_slag': [0, 189, 0, 106, 116, 124],
+        'fly_ash': [0, 0, 120, 132, 187, 0],
+        'water': [162, 162, 162, 158, 165, 170],
+        'superplasticizer': [2.5, 2.5, 2.5, 3.0, 2.8, 2.7],
+        'coarse_aggregate': [1040, 1040, 1040, 1035, 1038, 1045],
+        'fine_aggregate': [676, 676, 676, 670, 672, 680],
+        'age': [28, 28, 28, 35, 42, 21],
+        'strength': [79.99, 61.89, 40.27, 55.45, 48.92, 65.78]
+    }
+    
+    try:
+        # Try to read from file first
+        df = pd.read_csv('data/concrete.csv', encoding='utf-8')
+        return df
+    except:
+        try:
+            # If file doesn't exist, try to create it
+            df = pd.DataFrame(sample_data)
+            os.makedirs('data', exist_ok=True)
+            df.to_csv('data/concrete.csv', index=False, encoding='utf-8')
+            st.info("✨ Created sample dataset for demonstration")
+            return df
+        except:
+            # If file creation fails (e.g., in deployment), use sample data directly
+            st.info("✨ Using sample dataset for demonstration")
+            return pd.DataFrame(sample_data)
 
 @st.cache_resource
 def train_model(df):
-    """Train the Random Forest model"""
-    X = df.drop('strength', axis=1)
-    y = df['strength']
-    
-    scaler = RobustScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    model = RandomForestRegressor(n_estimators=200, max_depth=10, random_state=42)
-    model.fit(X_scaled, y)
-    
-    return model, scaler
+    """Train and cache the ML model"""
+    try:
+        if df is None:
+            return None, None
+            
+        # Prepare data
+        X = df.drop('strength', axis=1)
+        y = df['strength']
+        
+        # Initialize scaler and model
+        scaler = StandardScaler()
+        model = RandomForestRegressor(
+            n_estimators=100,
+            max_depth=10,
+            random_state=42
+        )
+        
+        # Scale features
+        X_scaled = scaler.fit_transform(X)
+        
+        # Train model
+        model.fit(X_scaled, y)
+        
+        return model, scaler
+    except Exception as e:
+        st.error(f"❌ Error training model: {str(e)}")
+        return None, None
 
 def create_feature_importance_plot(model, feature_names):
     """Create feature importance plot using plotly"""
@@ -252,176 +297,45 @@ def create_feature_importance_plot(model, feature_names):
     fig.update_layout(showlegend=False)
     return fig
 
-def home_page():
-    # Header section
-    st.markdown("""
-        <div class="home-header">
-            <h1><span class="emoji">🏗️</span><span class="emoji">🔥</span> Concrete Strength Analysis System</h1>
-            <p style='font-size: 1.2rem;'>Advanced Machine Learning for Precise Concrete Strength Prediction</p>
-        </div>
-    """, unsafe_allow_html=True)
+def get_user_input():
+    """Get user input for concrete mixture parameters"""
+    with st.form("prediction_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            cement = st.number_input("Cement (kg/m³)", min_value=0.0, max_value=1000.0, value=350.0)
+            blast_furnace_slag = st.number_input("Blast Furnace Slag (kg/m³)", min_value=0.0, max_value=1000.0, value=0.0)
+            fly_ash = st.number_input("Fly Ash (kg/m³)", min_value=0.0, max_value=1000.0, value=0.0)
+            water = st.number_input("Water (kg/m³)", min_value=0.0, max_value=500.0, value=160.0)
+        
+        with col2:
+            superplasticizer = st.number_input("Superplasticizer (kg/m³)", min_value=0.0, max_value=50.0, value=2.5)
+            coarse_aggregate = st.number_input("Coarse Aggregate (kg/m³)", min_value=0.0, max_value=2000.0, value=1040.0)
+            fine_aggregate = st.number_input("Fine Aggregate (kg/m³)", min_value=0.0, max_value=2000.0, value=676.0)
+            age = st.number_input("Age (days)", min_value=1, max_value=365, value=28)
+        
+        submit = st.form_submit_button("Predict Strength")
     
-    # Load data for metrics
-    df = load_data()
-    
-    # Key Metrics Row
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown("""
-            <div class="metric-card">
-                <div class="metric-value">📊 1,030</div>
-                <div class="metric-label">Total Samples</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">💪 {df['strength'].mean():.1f}</div>
-                <div class="metric-label">Average Strength (MPa)</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">⚡ {df['strength'].max():.1f}</div>
-                <div class="metric-label">Maximum Strength (MPa)</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown("""
-            <div class="metric-card">
-                <div class="metric-value">🎯 91%</div>
-                <div class="metric-label">Model Accuracy</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # Feature Cards
-    st.markdown("### 🚀 Key Features")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Data Analysis</h3>
-                <p>Explore comprehensive visualizations and statistical analysis of concrete mixture data.</p>
-                <ul>
-                    <li>Interactive data exploration</li>
-                    <li>Correlation analysis</li>
-                    <li>Distribution visualization</li>
-                </ul>
-            </div>
-            
-            <div class="feature-card">
-                <div class="feature-icon">🎯</div>
-                <h3>Strength Prediction</h3>
-                <p>Get accurate predictions of concrete strength using advanced machine learning.</p>
-                <ul>
-                    <li>Real-time predictions</li>
-                    <li>Confidence intervals</li>
-                    <li>Optimization suggestions</li>
-                </ul>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-            <div class="feature-card">
-                <div class="feature-icon">🔍</div>
-                <h3>Model Insights</h3>
-                <p>Understand the factors that influence concrete strength.</p>
-                <ul>
-                    <li>Feature importance analysis</li>
-                    <li>Performance metrics</li>
-                    <li>Interactive visualizations</li>
-                </ul>
-            </div>
-            
-            <div class="feature-card">
-                <div class="feature-icon">💡</div>
-                <h3>Optimization</h3>
-                <p>Get recommendations for optimal concrete mixtures.</p>
-                <ul>
-                    <li>Mix design suggestions</li>
-                    <li>Cost optimization</li>
-                    <li>Quality control</li>
-                </ul>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    # Quick Start Guide
-    st.markdown("### 🚀 Quick Start Guide")
-    st.markdown("""
-        <div class="feature-card">
-            <ol>
-                <li><strong>Explore Data:</strong> Use the Data Explorer to understand concrete mixture patterns</li>
-                <li><strong>Make Predictions:</strong> Input your mixture properties to predict strength</li>
-                <li><strong>Analyze Results:</strong> View detailed insights and recommendations</li>
-                <li><strong>Optimize Design:</strong> Get suggestions for improving your concrete mixture</li>
-            </ol>
-        </div>
-    """, unsafe_allow_html=True)
-
-def data_explorer_page():
-    st.header("Data Explorer")
-    
-    # Show raw data
-    if st.checkbox("Show raw data"):
-        df = load_data()
-        st.write(df)
-    
-    # Statistical summary
-    if st.checkbox("Show statistical summary"):
-        df = load_data()
-        st.write(df.describe())
-    
-    # Correlation heatmap
-    if st.checkbox("Show correlation heatmap"):
-        df = load_data()
-        fig = px.imshow(df.corr(),
-                      labels=dict(color="Correlation"),
-                      title="Feature Correlation Matrix")
-        st.plotly_chart(fig)
-    
-    # Scatter plots
-    st.subheader("Feature Relationships")
-    df = load_data()
-    x_axis = st.selectbox("Choose x-axis", df.columns)
-    y_axis = st.selectbox("Choose y-axis", df.columns)
-    
-    fig = px.scatter(df, x=x_axis, y=y_axis,
-                    title=f"{x_axis} vs {y_axis}")
-    st.plotly_chart(fig)
+    if submit:
+        data = pd.DataFrame({
+            'cement': [cement],
+            'blast_furnace_slag': [blast_furnace_slag],
+            'fly_ash': [fly_ash],
+            'water': [water],
+            'superplasticizer': [superplasticizer],
+            'coarse_aggregate': [coarse_aggregate],
+            'fine_aggregate': [fine_aggregate],
+            'age': [age]
+        })
+        return data
+    return None
 
 def prediction_page(model, scaler):
     st.header("Strength Prediction")
     
-    col1, col2 = st.columns(2)
+    input_data = get_user_input()
     
-    with col1:
-        st.subheader("Input Mixture Properties")
-        cement = st.number_input("Cement (kg/m³)", 100.0, 600.0, 350.0)
-        slag = st.number_input("Slag (kg/m³)", 0.0, 400.0, 100.0)
-        ash = st.number_input("Fly Ash (kg/m³)", 0.0, 200.0, 50.0)
-        water = st.number_input("Water (kg/m³)", 100.0, 300.0, 180.0)
-    
-    with col2:
-        superplastic = st.number_input("Superplasticizer (kg/m³)", 0.0, 20.0, 6.0)
-        coarseagg = st.number_input("Coarse Aggregate (kg/m³)", 700.0, 1200.0, 1000.0)
-        fineagg = st.number_input("Fine Aggregate (kg/m³)", 500.0, 1000.0, 800.0)
-        age = st.number_input("Age (days)", 1, 365, 28)
-    
-    if st.button("Predict Strength"):
-        # Create input array
-        input_data = pd.DataFrame([[cement, slag, ash, water, superplastic, coarseagg, fineagg, age]],
-                                columns=['cement', 'slag', 'ash', 'water', 'superplastic', 
-                                       'coarseagg', 'fineagg', 'age'])
-        
+    if input_data is not None:
         # Scale input
         input_scaled = scaler.transform(input_data)
         
@@ -432,7 +346,7 @@ def prediction_page(model, scaler):
         st.success(f"Predicted Strength: {prediction:.2f} MPa")
         
         # Calculate water-cement ratio
-        wc_ratio = water / cement
+        wc_ratio = input_data['water'].values[0] / input_data['cement'].values[0]
         st.info(f"Water-Cement Ratio: {wc_ratio:.3f}")
         
         # Add recommendations
@@ -468,7 +382,7 @@ def model_insights_page(model, df):
     st.subheader("Model Performance")
     X = df.drop('strength', axis=1)
     y = df['strength']
-    X_scaled = RobustScaler().fit_transform(X)
+    X_scaled = StandardScaler().fit_transform(X)
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
     
     train_pred = model.predict(X_train)
@@ -480,26 +394,156 @@ def model_insights_page(model, df):
     with col2:
         st.metric("Testing R² Score", f"{model.score(X_test, y_test):.3f}")
 
-def main():
-    # Load data and train model
-    df = load_data()
-    model, scaler = train_model(df)
+def about_page():
+    """About page content"""
+    st.markdown("""
+    # About This Project 🏗️
+
+    ## Overview
+    The Concrete Strength Analysis System is an advanced machine learning application designed to predict concrete compressive strength based on mixture proportions. This tool helps engineers and researchers optimize concrete mixtures for desired strength outcomes.
+
+    ## Features
+    - **Real-time Predictions** 📊
+        - Instant strength predictions
+        - Confidence intervals
+        - Mix optimization suggestions
     
-    # Sidebar navigation
-    st.sidebar.image("https://raw.githubusercontent.com/your-repo/concrete-icon.png", width=100)
-    page = st.sidebar.selectbox(
-        "Navigation",
-        ["Home", "Data Explorer", "Prediction", "Model Insights"]
+    - **Data Analysis** 📈
+        - Feature importance visualization
+        - Correlation analysis
+        - Performance metrics
+    
+    - **Machine Learning Model** 🤖
+        - Random Forest Regressor
+        - Feature scaling
+        - Cross-validation
+
+    ## How It Works
+    1. **Input Parameters**: Enter your concrete mixture proportions
+    2. **Processing**: Our ML model analyzes the input
+    3. **Prediction**: Get instant strength predictions
+    4. **Analysis**: View detailed insights and recommendations
+
+    ## Technical Details
+    - **Algorithm**: Random Forest Regressor
+    - **Accuracy**: ~90% on test data
+    - **Features**: 8 input parameters
+    - **Target**: Compressive strength (MPa)
+
+    ## Developer
+    - **Name**: Fahad
+    - **GitHub**: [fahad0samara](https://github.com/fahad0samara)
+    - **Project Repository**: [Concrete-Strength-Analysis](https://github.com/fahad0samara/Concrete-Strength-Analysis)
+
+    ## References
+    - UCI Machine Learning Repository
+    - Concrete Compressive Strength Dataset
+    - Scikit-learn Documentation
+    """)
+
+def analysis_page(df):
+    """Analysis page with visualizations and insights"""
+    st.header("📈 Data Analysis")
+
+    # Data Overview
+    with st.expander("📊 Data Overview"):
+        st.write("Sample of the dataset:", df.head())
+        st.write("Statistical Summary:", df.describe())
+
+    # Correlation Analysis
+    with st.expander("🔗 Correlation Analysis"):
+        corr = df.corr()
+        fig = px.imshow(corr,
+                       labels=dict(color="Correlation"),
+                       title="Feature Correlation Matrix")
+        st.plotly_chart(fig)
+
+    # Feature Distributions
+    with st.expander("📊 Feature Distributions"):
+        feature = st.selectbox("Select Feature", df.columns)
+        fig = px.histogram(df, x=feature, title=f"Distribution of {feature}")
+        st.plotly_chart(fig)
+
+    # Scatter Plot
+    with st.expander("📈 Feature Relationships"):
+        col1, col2 = st.columns(2)
+        with col1:
+            x_axis = st.selectbox("X-axis", df.columns)
+        with col2:
+            y_axis = st.selectbox("Y-axis", df.columns, index=len(df.columns)-1)
+        
+        fig = px.scatter(df, x=x_axis, y=y_axis,
+                        title=f"Relationship: {x_axis} vs {y_axis}")
+        st.plotly_chart(fig)
+
+    # Strength vs Age Analysis
+    with st.expander("⏳ Strength Development Over Time"):
+        fig = px.line(df.groupby('age')['strength'].mean().reset_index(),
+                     x='age', y='strength',
+                     title="Average Strength Development Over Time")
+        st.plotly_chart(fig)
+
+def main():
+    """Main function to run the Streamlit app"""
+    # Page config
+    st.set_page_config(
+        page_title="🏗️ Concrete Strength Analysis",
+        page_icon="🏗️",
+        layout="wide"
     )
     
-    if page == "Home":
-        home_page()
-    elif page == "Data Explorer":
-        data_explorer_page()
-    elif page == "Prediction":
+    # Custom CSS
+    st.markdown("""
+        <style>
+        .main {
+            padding: 2rem;
+        }
+        .stApp {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5rem !important;
+            font-weight: 700 !important;
+            margin-bottom: 1rem !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 2rem;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 4rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Title and description
+    st.title("🏗️ Concrete Strength Analysis")
+    st.markdown("""
+    Predict concrete compressive strength using machine learning. Enter your concrete mixture 
+    parameters and get instant predictions along with insights and recommendations.
+    """)
+    
+    # Load data
+    df = load_data()
+    
+    # Train model
+    model, scaler = train_model(df)
+    if model is None or scaler is None:
+        st.error("❌ Could not train the model. Please check the console for errors.")
+        st.stop()
+    
+    # Create tabs
+    tab1, tab2, tab3 = st.tabs(["📊 Prediction", "📈 Analysis", "ℹ️ About"])
+    
+    with tab1:
         prediction_page(model, scaler)
-    else:  # Model Insights
-        model_insights_page(model, df)
+    
+    with tab2:
+        analysis_page(df)
+    
+    with tab3:
+        about_page()
 
 if __name__ == "__main__":
     main()

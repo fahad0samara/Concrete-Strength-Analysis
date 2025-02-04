@@ -63,6 +63,7 @@ coverage.xml
 
 # Data
 *.csv
+!data/concrete.csv  # Allow concrete.csv in data directory
 !data/*.csv  # Keep tracked CSV files in data directory
 
 # Images
