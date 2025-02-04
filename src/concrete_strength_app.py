@@ -1,4 +1,12 @@
 import streamlit as st
+
+# Must be the first Streamlit command
+st.set_page_config(
+    page_title="🏗️ Concrete Strength Analysis",
+    page_icon="🏗️",
+    layout="wide"
+)
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -11,13 +19,30 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
-# Set page configuration
-st.set_page_config(
-    page_title="Concrete Strength Analysis",
-    page_icon="🏗️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Custom CSS
+st.markdown("""
+    <style>
+    .main {
+        padding: 2rem;
+    }
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    h1 {
+        color: #2c3e50;
+        font-size: 2.5rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 1rem !important;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 4rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Custom CSS for improved readability
 st.markdown("""
@@ -485,38 +510,6 @@ def analysis_page(df):
 
 def main():
     """Main function to run the Streamlit app"""
-    # Page config
-    st.set_page_config(
-        page_title="🏗️ Concrete Strength Analysis",
-        page_icon="🏗️",
-        layout="wide"
-    )
-    
-    # Custom CSS
-    st.markdown("""
-        <style>
-        .main {
-            padding: 2rem;
-        }
-        .stApp {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #2c3e50;
-            font-size: 2.5rem !important;
-            font-weight: 700 !important;
-            margin-bottom: 1rem !important;
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 2rem;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 4rem;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
     # Title and description
     st.title("🏗️ Concrete Strength Analysis")
     st.markdown("""
